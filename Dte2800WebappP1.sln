@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dte2800WebappP1", "Dte2800WebappP1.csproj", "{AADBB1DA-6FF4-48DB-9B4D-BC6F8BBBD797}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AADBB1DA-6FF4-48DB-9B4D-BC6F8BBBD797}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AADBB1DA-6FF4-48DB-9B4D-BC6F8BBBD797}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AADBB1DA-6FF4-48DB-9B4D-BC6F8BBBD797}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AADBB1DA-6FF4-48DB-9B4D-BC6F8BBBD797}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
