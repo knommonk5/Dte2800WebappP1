@@ -1,5 +1,16 @@
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Build output
 bin/
 obj/
-/packages/
-riderModule.iml
-/_ReSharper.Caches/
+
+# Local configuration
+.env
+appsettings.Development.local.json
+
+# Local SQLite database
+*.db
+*.db-shm
+*.db-wal

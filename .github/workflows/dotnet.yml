@@ -1,0 +1,34 @@
+
+name: Bygg og test Bruktborsen
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Hent kode
+        uses: actions/checkout@v4
+
+      - name: Installer .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Gjenopprett pakker
+        run: dotnet restore Bruktborsen.slnx
+
+      - name: Bygg prosjektet
+        run: dotnet build Bruktborsen.slnx --no-restore
+
+      - name: Kjor tester
+        run: dotnet test Bruktborsen.slnx --no-build
