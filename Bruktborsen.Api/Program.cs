@@ -5,6 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using Bruktborsen.Api.Data.Seed;
 using Bruktborsen.Api.Repositories;
 using Bruktborsen.Api.Services;
+using Bruktborsen.Api.Repositories.Interfaces;
+using Bruktborsen.Api.Services.Interfaces;
+
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +29,10 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IListingRepository, ListingRepository>();
+builder.Services.AddScoped<IListingService, ListingService>();
+builder.Services.AddScoped<IFavoriteRepository, FavoriteRepository>();
+builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 
 var app = builder.Build();
 await IdentitySeeder.SeedRolesAsync(app.Services);
