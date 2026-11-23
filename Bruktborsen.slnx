@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Bruktborsen.Api/Bruktborsen.Api.csproj" />
+  <Project Path="Bruktborsen.Tests/Bruktborsen.Tests.csproj" />
+</Solution>
