@@ -10,10 +10,14 @@ namespace Bruktborsen.Api.Services;
 public class ListingService : IListingService
 {
     private readonly IListingRepository _repository;
+    private readonly IPriceChangeService _priceChangeService;
 
-    public ListingService(IListingRepository repository)
+    public ListingService(
+        IListingRepository repository,
+        IPriceChangeService priceChangeService)
     {
         _repository = repository;
+        _priceChangeService = priceChangeService;
     }
 
     public async Task<List<ListingDto>> GetAllAsync()
@@ -101,8 +105,15 @@ public class ListingService : IListingService
 
         if (!await _repository.CategoryExistsAsync(dto.CategoryId))
         {
-            throw new ArgumentException("Kategorien finnes ikke.");
+            throw new ArgumentException(
+                "Kategorien finnes ikke.");
         }
+
+        // Registrer eventuell prisendring.
+        await _priceChangeService.RegisterChangeAsync(
+            listing.Id,
+            listing.Price,
+            dto.Price);
 
         listing.Title = dto.Title.Trim();
         listing.Description = dto.Description.Trim();
@@ -111,6 +122,7 @@ public class ListingService : IListingService
         listing.Condition = dto.Condition;
         listing.CategoryId = dto.CategoryId;
 
+        // Lagre annonse og prishistorikk atomisk.
         await _repository.SaveChangesAsync();
 
         return true;
