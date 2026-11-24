@@ -41,6 +41,9 @@ public class BruktborsenDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Listing>(entity =>
         {
+            entity.Property(x => x.Status)
+                .IsConcurrencyToken();
+            
             entity.Property(x => x.Title)
                 .IsRequired()
                 .HasMaxLength(200);
@@ -65,6 +68,9 @@ public class BruktborsenDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Offer>(entity =>
         {
+            entity.Property(x => x.Status)
+                .IsConcurrencyToken();
+            
             entity.Property(x => x.Amount).HasPrecision(18, 2);
 
             entity.HasOne(x => x.Listing)
