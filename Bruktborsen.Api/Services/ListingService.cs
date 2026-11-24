@@ -1,4 +1,3 @@
-
 using Bruktborsen.Api.DTOs.Listings;
 using Bruktborsen.Api.Models;
 using Bruktborsen.Api.Models.Enums;
@@ -20,12 +19,12 @@ public class ListingService : IListingService
         _priceChangeService = priceChangeService;
     }
 
-    public async Task<List<ListingDto>> GetAllAsync()
+    public async Task<List<ListingDto>> GetAllAsync(
+        ListingQueryDto? query = null)
     {
-        var listings = await _repository.GetAllAsync();
+        var listings = await _repository.GetAllAsync(query);
 
         return listings
-            .Where(l => l.Status == ListingStatus.Active)
             .Select(ToDto)
             .ToList();
     }

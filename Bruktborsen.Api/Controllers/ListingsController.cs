@@ -1,4 +1,3 @@
-
 using System.Security.Claims;
 using Bruktborsen.Api.DTOs.Listings;
 using Bruktborsen.Api.Services.Interfaces;
@@ -19,11 +18,14 @@ public class ListingsController : ControllerBase
     }
 
     // GET /api/listings
+    // GET /api/listings?search=spill&sortBy=price&sortOrder=asc
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ActionResult<List<ListingDto>>> GetAll()
+    public async Task<ActionResult<List<ListingDto>>> GetAll(
+        [FromQuery] ListingQueryDto query)
     {
-        var listings = await _service.GetAllAsync();
+        var listings = await _service.GetAllAsync(query);
+
         return Ok(listings);
     }
 
