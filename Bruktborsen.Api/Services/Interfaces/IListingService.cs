@@ -4,7 +4,9 @@ namespace Bruktborsen.Api.Services.Interfaces;
 
 public interface IListingService
 {
-    Task<List<ListingDto>> GetAllAsync();
+    Task<List<ListingDto>> GetAllAsync(
+        ListingQueryDto? query = null);
+
     Task<ListingDto?> GetByIdAsync(int id);
 
     Task<ListingDto> CreateAsync(
