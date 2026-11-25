@@ -8,6 +8,9 @@ using Bruktborsen.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Bruktborsen.Api.Services.Identity;
+using Scalar.AspNetCore;
+using Microsoft.OpenApi;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,7 +33,93 @@ builder.Services.AddHttpContextAccessor();
 
 // Controllers og OpenAPI
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Info.Title = "Bruktbørsen API";
+        document.Info.Version = "v1";
+
+        document.Components ??= new OpenApiComponents();
+
+        document.Components.SecuritySchemes ??=
+            new Dictionary<string, IOpenApiSecurityScheme>();
+
+        document.Components.SecuritySchemes["Bearer"] =
+            new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                Description = "Access token fra /api/auth/login"
+            };
+
+        return Task.CompletedTask;
+    });
+
+    options.AddOperationTransformer((operation, context, cancellationToken) =>
+    {
+        var metadata = context.Description.ActionDescriptor.EndpointMetadata;
+
+        if (metadata.OfType<IAuthorizeData>().Any() &&
+            !metadata.OfType<IAllowAnonymous>().Any())
+        {
+            operation.Security ??= [];
+
+            operation.Security.Add(new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("Bearer")] = []
+            });
+        }
+
+        if (string.Equals(
+                context.Description.RelativePath?.TrimEnd('/'),
+                "api/auth/register",
+                StringComparison.OrdinalIgnoreCase) &&
+            context.Description.HttpMethod == "POST")
+        {
+            operation.Description =
+                "Registrerer en bruker. FullName er påkrevd.";
+
+            if (operation.RequestBody is OpenApiRequestBody requestBody &&
+                requestBody.Content is not null &&
+                requestBody.Content.TryGetValue(
+                    "application/json", out var mediaType))
+            {
+                mediaType.Schema = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.Object,
+                    Properties = new Dictionary<string, IOpenApiSchema>
+                    {
+                        ["email"] = new OpenApiSchema
+                        {
+                            Type = JsonSchemaType.String,
+                            Format = "email"
+                        },
+                        ["password"] = new OpenApiSchema
+                        {
+                            Type = JsonSchemaType.String,
+                            Format = "password"
+                        },
+                        ["fullName"] = new OpenApiSchema
+                        {
+                            Type = JsonSchemaType.String,
+                            MaxLength = 150
+                        }
+                    },
+                    Required = new HashSet<string>
+                    {
+                        "email",
+                        "password",
+                        "fullName"
+                    }
+                };
+            }
+        }
+
+        return Task.CompletedTask;
+    });
+});
 
 // CORS for Blazor-klienten
 var allowedOrigins = builder.Configuration
@@ -72,6 +161,14 @@ await IdentitySeeder.SeedRolesAsync(app.Services);
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+
+    app.MapScalarApiReference(options =>
+    {
+        options.WithTitle("Bruktbørsen API");
+    });
+
+    app.MapGet("/", () => Results.Redirect("/scalar/v1"))
+        .ExcludeFromDescription();
 }
 
 app.UseHttpsRedirection();
