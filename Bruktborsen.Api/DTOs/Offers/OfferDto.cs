@@ -10,7 +10,7 @@ public class OfferDto
 
     public OfferStatus Status { get; set; }
 
-    public DateTime CreatedAt { get; set; }
+    public DateTime CreatedDate { get; set; }
 
     public int ListingId { get; set; }
 

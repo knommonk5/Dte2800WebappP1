@@ -8,6 +8,8 @@ using Bruktborsen.Api.Models;
 using Bruktborsen.Api.Models.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Bruktborsen.Api.DTOs.Listings;
+using Microsoft.EntityFrameworkCore;
 
 namespace Bruktborsen.Tests.Integration;
 
@@ -353,5 +355,269 @@ public class ListingFavoriteTests
             "/api/favorites/99999", null);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+    
+    [Fact]
+    public async Task UpdateSoldListing_ReturnsConflict()
+    {
+        await using var factory = new AuthTestFactory();
+
+        using var seller = await CreateUserClientAsync(
+            factory, "seller@example.com");
+
+        using var buyer = await CreateUserClientAsync(
+            factory, "buyer@example.com");
+
+        var categoryId = await CreateCategoryAsync(factory);
+        var listingId = await CreateListingAsync(seller, categoryId);
+
+        await SellListingAsync(seller, buyer, listingId);
+
+        var response = await seller.PutAsJsonAsync(
+            $"/api/listings/{listingId}",
+            new
+            {
+                Title = "Endret annonse",
+                Description = "Oppdatert beskrivelse.",
+                Price = 1000,
+                OriginalPrice = 3000m,
+                Condition = Condition.Good,
+                CategoryId = categoryId
+            });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<BruktborsenDbContext>();
+
+        var listing = await db.Listings.FindAsync(listingId);
+
+        Assert.NotNull(listing);
+        Assert.Equal(ListingStatus.Sold, listing.Status);
+        Assert.Equal(1500, listing.Price);
+        Assert.Equal(1200m, listing.SoldPrice);
+        Assert.Equal("Brukt spillkonsoll", listing.Title);
+
+        Assert.False(await db.PriceChanges.AnyAsync(
+            p => p.ListingId == listingId));
+    }
+    
+    [Fact]
+    public async Task DeleteSoldListing_ReturnsConflict()
+    {
+        await using var factory = new AuthTestFactory();
+
+        using var seller = await CreateUserClientAsync(
+            factory, "seller@example.com");
+
+        using var buyer = await CreateUserClientAsync(
+            factory, "buyer@example.com");
+
+        var categoryId = await CreateCategoryAsync(factory);
+        var listingId = await CreateListingAsync(seller, categoryId);
+
+        await SellListingAsync(seller, buyer, listingId);
+
+        var response = await seller.DeleteAsync(
+            $"/api/listings/{listingId}");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<BruktborsenDbContext>();
+
+        var listing = await db.Listings.FindAsync(listingId);
+
+        Assert.NotNull(listing);
+        Assert.Equal(ListingStatus.Sold, listing.Status);
+        Assert.Equal(1200m, listing.SoldPrice);
+    }
+    
+    [Fact]
+    public async Task DeleteOwnListing_SetsRemovedStatus()
+    {
+        await using var factory = new AuthTestFactory();
+
+        using var seller = await CreateUserClientAsync(
+            factory, "seller@example.com");
+
+        var categoryId = await CreateCategoryAsync(factory);
+        var listingId = await CreateListingAsync(seller, categoryId);
+
+        var response = await seller.DeleteAsync(
+            $"/api/listings/{listingId}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<BruktborsenDbContext>();
+
+        var listing = await db.Listings.FindAsync(listingId);
+
+        Assert.NotNull(listing);
+        Assert.Equal(ListingStatus.Removed, listing.Status);
+
+        using var anonymous = factory.CreateClient();
+
+        var detailResponse = await anonymous.GetAsync(
+            $"/api/listings/{listingId}");
+
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            detailResponse.StatusCode);
+
+        var listings = await anonymous
+            .GetFromJsonAsync<List<ListingDto>>("/api/listings");
+
+        Assert.NotNull(listings);
+        Assert.DoesNotContain(listings, l => l.Id == listingId);
+    }
+    
+    [Fact]
+    public async Task DeleteListing_RejectsPendingOffers()
+    {
+        await using var factory = new AuthTestFactory();
+
+        using var seller = await CreateUserClientAsync(
+            factory, "seller@example.com");
+
+        using var buyer1 = await CreateUserClientAsync(
+            factory, "buyer1@example.com");
+
+        using var buyer2 = await CreateUserClientAsync(
+            factory, "buyer2@example.com");
+
+        var categoryId = await CreateCategoryAsync(factory);
+        var listingId = await CreateListingAsync(seller, categoryId);
+
+        var firstOffer = await buyer1.PostAsJsonAsync(
+            $"/api/listings/{listingId}/offers",
+            new { Amount = 1000m });
+
+        var secondOffer = await buyer2.PostAsJsonAsync(
+            $"/api/listings/{listingId}/offers",
+            new { Amount = 1200m });
+
+        Assert.Equal(HttpStatusCode.Created, firstOffer.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, secondOffer.StatusCode);
+
+        var response = await seller.DeleteAsync(
+            $"/api/listings/{listingId}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<BruktborsenDbContext>();
+
+        var listing = await db.Listings.FindAsync(listingId);
+
+        Assert.NotNull(listing);
+        Assert.Equal(ListingStatus.Removed, listing.Status);
+
+        var offers = await db.Offers
+            .Where(o => o.ListingId == listingId)
+            .ToListAsync();
+
+        Assert.Equal(2, offers.Count);
+
+        Assert.All(offers, offer =>
+            Assert.Equal(OfferStatus.Rejected, offer.Status));
+    }
+    
+    [Fact]
+    public async Task GetMyListings_ReturnsOwnListingsWithAllStatuses()
+    {
+        await using var factory = new AuthTestFactory();
+
+        using var seller = await CreateUserClientAsync(
+            factory, "seller@example.com");
+
+        using var other = await CreateUserClientAsync(
+            factory, "other@example.com");
+
+        var categoryId = await CreateCategoryAsync(factory);
+
+        var activeId = await CreateListingAsync(seller, categoryId);
+        var soldId = await CreateListingAsync(seller, categoryId);
+        var removedId = await CreateListingAsync(seller, categoryId);
+        var otherId = await CreateListingAsync(other, categoryId);
+
+        await SellListingAsync(seller, other, soldId);
+
+        var deleteResponse = await seller.DeleteAsync(
+            $"/api/listings/{removedId}");
+
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            deleteResponse.StatusCode);
+
+        var listings = await seller
+            .GetFromJsonAsync<List<ListingDto>>("/api/listings/my");
+
+        Assert.NotNull(listings);
+        Assert.Equal(3, listings.Count);
+
+        Assert.Contains(listings, l =>
+            l.Id == activeId &&
+            l.Status == ListingStatus.Active);
+
+        Assert.Contains(listings, l =>
+            l.Id == soldId &&
+            l.Status == ListingStatus.Sold);
+
+        Assert.Contains(listings, l =>
+            l.Id == removedId &&
+            l.Status == ListingStatus.Removed);
+
+        Assert.DoesNotContain(listings, l => l.Id == otherId);
+    }
+    
+    [Fact]
+    public async Task GetMyListings_WithoutLogin_ReturnsUnauthorized()
+    {
+        await using var factory = new AuthTestFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/listings/my");
+
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode);
+    }
+    
+    private static async Task SellListingAsync(
+        HttpClient seller,
+        HttpClient buyer,
+        int listingId)
+    {
+        var offerResponse = await buyer.PostAsJsonAsync(
+            $"/api/listings/{listingId}/offers",
+            new { Amount = 1200m });
+
+        Assert.Equal(
+            HttpStatusCode.Created,
+            offerResponse.StatusCode);
+
+        using var json = JsonDocument.Parse(
+            await offerResponse.Content.ReadAsStringAsync());
+
+        var offerId = json.RootElement
+            .GetProperty("id")
+            .GetInt32();
+
+        var acceptResponse = await seller.PostAsync(
+            $"/api/offers/{offerId}/accept", null);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            acceptResponse.StatusCode);
     }
 }

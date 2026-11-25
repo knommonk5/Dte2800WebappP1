@@ -14,6 +14,9 @@ public interface IOfferRepository
 
     Task<Listing?> GetListingByIdAsync(int listingId);
 
+    Task<bool> HasPendingOfferAsync(
+        int listingId, string buyerId);
+
     Task AddAsync(Offer offer);
 
     Task SaveChangesAsync();

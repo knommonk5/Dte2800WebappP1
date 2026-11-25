@@ -1,4 +1,3 @@
-
 using Bruktborsen.Api.DTOs.Categories;
 using Bruktborsen.Api.Models;
 using Bruktborsen.Api.Repositories;
@@ -30,7 +29,9 @@ public class CategoryService : ICategoryService
         var category = await _repository.GetByIdAsync(id);
 
         if (category == null)
+        {
             return null;
+        }
 
         return new CategoryDto
         {
@@ -42,17 +43,13 @@ public class CategoryService : ICategoryService
     public async Task<CategoryDto> CreateAsync(
         CreateCategoryDto dto)
     {
-        var name = dto.Name.Trim();
-        
-        if (name.Length < 2 || name.Length > 100)
-        {
-            throw new ArgumentException(
-                "Kategorinavn må være mellom 2 og 100 tegn.");
-        }
+        var name = ValidateName(dto.Name);
 
         if (await _repository.ExistsByNameAsync(name))
+        {
             throw new InvalidOperationException(
                 "Kategorien finnes allerede.");
+        }
 
         var category = new Category
         {
@@ -70,24 +67,23 @@ public class CategoryService : ICategoryService
     }
 
     public async Task<bool> UpdateAsync(
-        int id, UpdateCategoryDto dto)
+        int id,
+        UpdateCategoryDto dto)
     {
         var category = await _repository.GetByIdAsync(id);
 
         if (category == null)
-            return false;
-
-        var name = dto.Name.Trim();
-        
-        if (name.Length < 2 || name.Length > 100)
         {
-            throw new ArgumentException(
-                "Kategorinavn må være mellom 2 og 100 tegn.");
+            return false;
         }
 
+        var name = ValidateName(dto.Name);
+
         if (await _repository.ExistsByNameAsync(name, id))
+        {
             throw new InvalidOperationException(
                 "Kategorien finnes allerede.");
+        }
 
         category.Name = name;
 
@@ -101,7 +97,9 @@ public class CategoryService : ICategoryService
         var category = await _repository.GetByIdAsync(id);
 
         if (category == null)
+        {
             return false;
+        }
 
         if (await _repository.HasListingsAsync(id))
         {
@@ -113,5 +111,17 @@ public class CategoryService : ICategoryService
         await _repository.SaveChangesAsync();
 
         return true;
+    }
+
+    private static string ValidateName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name) ||
+            name.Length > 50)
+        {
+            throw new ArgumentException(
+                "Kategorinavn er påkrevd og kan ha maksimalt 50 tegn.");
+        }
+
+        return name.Trim();
     }
 }

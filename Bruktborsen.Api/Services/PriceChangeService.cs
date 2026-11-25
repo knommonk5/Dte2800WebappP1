@@ -37,15 +37,15 @@ public class PriceChangeService : IPriceChangeService
         decimal oldPrice,
         decimal newPrice)
     {
+        if (oldPrice <= 0 || newPrice <= 0)
+        {
+            throw new ArgumentException(
+                "Pris må være større enn null.");
+        }
+
         if (oldPrice == newPrice)
         {
             return;
-        }
-
-        if (oldPrice < 0 || newPrice < 0)
-        {
-            throw new ArgumentException(
-                "Pris kan ikke være negativ.");
         }
 
         var priceChange = new PriceChange
@@ -53,7 +53,7 @@ public class PriceChangeService : IPriceChangeService
             ListingId = listingId,
             OldPrice = oldPrice,
             NewPrice = newPrice,
-            ChangedAt = DateTime.UtcNow
+            ChangedDate = DateTime.UtcNow
         };
 
         await _repository.AddAsync(priceChange);
@@ -68,7 +68,7 @@ public class PriceChangeService : IPriceChangeService
             ListingId = priceChange.ListingId,
             OldPrice = priceChange.OldPrice,
             NewPrice = priceChange.NewPrice,
-            ChangedAt = priceChange.ChangedAt
+            ChangedDate = priceChange.ChangedDate
         };
     }
 }

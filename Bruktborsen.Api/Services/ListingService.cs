@@ -10,13 +10,16 @@ public class ListingService : IListingService
 {
     private readonly IListingRepository _repository;
     private readonly IPriceChangeService _priceChangeService;
+    private readonly IAnalyticsService _analyticsService;
 
     public ListingService(
         IListingRepository repository,
-        IPriceChangeService priceChangeService)
+        IPriceChangeService priceChangeService,
+        IAnalyticsService analyticsService)
     {
         _repository = repository;
         _priceChangeService = priceChangeService;
+        _analyticsService = analyticsService;
     }
 
     public async Task<List<ListingDto>> GetAllAsync(
@@ -24,9 +27,30 @@ public class ListingService : IListingService
     {
         var listings = await _repository.GetAllAsync(query);
 
-        return listings
-            .Select(ToDto)
-            .ToList();
+        var result = new List<ListingDto>();
+
+        foreach (var listing in listings)
+        {
+            result.Add(await ToDtoAsync(listing));
+        }
+
+        return result;
+    }
+
+    public async Task<List<ListingDto>> GetMyListingsAsync(
+        string sellerId)
+    {
+        var listings =
+            await _repository.GetBySellerIdAsync(sellerId);
+
+        var result = new List<ListingDto>();
+
+        foreach (var listing in listings)
+        {
+            result.Add(await ToDtoAsync(listing));
+        }
+
+        return result;
     }
 
     public async Task<ListingDto?> GetByIdAsync(int id)
@@ -34,12 +58,12 @@ public class ListingService : IListingService
         var listing = await _repository.GetByIdAsync(id);
 
         if (listing == null ||
-            listing.Status != ListingStatus.Active)
+            listing.Status == ListingStatus.Removed)
         {
             return null;
         }
 
-        return ToDto(listing);
+        return await ToDtoAsync(listing);
     }
 
     public async Task<ListingDto> CreateAsync(
@@ -55,7 +79,8 @@ public class ListingService : IListingService
 
         if (!await _repository.CategoryExistsAsync(dto.CategoryId))
         {
-            throw new ArgumentException("Kategorien finnes ikke.");
+            throw new ArgumentException(
+                "Kategorien finnes ikke.");
         }
 
         var listing = new Listing
@@ -65,19 +90,21 @@ public class ListingService : IListingService
             Price = dto.Price,
             OriginalPrice = dto.OriginalPrice,
             Condition = dto.Condition,
+            ImageUrl = dto.ImageUrl?.Trim(),
             CategoryId = dto.CategoryId,
             SellerId = sellerId,
             Status = ListingStatus.Active,
-            CreatedAt = DateTime.UtcNow
+            CreatedDate = DateTime.UtcNow
         };
 
         await _repository.AddAsync(listing);
         await _repository.SaveChangesAsync();
 
-        // Hent på nytt for å inkludere kategori og selger.
-        var created = await _repository.GetByIdAsync(listing.Id);
+        // Hent på nytt for å inkludere relasjoner.
+        var created =
+            await _repository.GetByIdAsync(listing.Id);
 
-        return ToDto(created!);
+        return await ToDtoAsync(created!);
     }
 
     public async Task<bool> UpdateAsync(
@@ -94,6 +121,13 @@ public class ListingService : IListingService
         }
 
         EnsureOwnerOrAdmin(listing, userId, isAdmin);
+
+        // Bare aktive annonser kan redigeres.
+        if (listing.Status != ListingStatus.Active)
+        {
+            throw new InvalidOperationException(
+                "Bare aktive annonser kan endres.");
+        }
 
         Validate(
             dto.Title,
@@ -119,6 +153,7 @@ public class ListingService : IListingService
         listing.Price = dto.Price;
         listing.OriginalPrice = dto.OriginalPrice;
         listing.Condition = dto.Condition;
+        listing.ImageUrl = dto.ImageUrl?.Trim();
         listing.CategoryId = dto.CategoryId;
 
         // Lagre annonse og prishistorikk atomisk.
@@ -141,7 +176,31 @@ public class ListingService : IListingService
 
         EnsureOwnerOrAdmin(listing, userId, isAdmin);
 
-        _repository.Delete(listing);
+        // Gjentatt fjerning skal ikke endre databasen.
+        if (listing.Status == ListingStatus.Removed)
+        {
+            return true;
+        }
+
+        // Behold historiske salg til analysemodulen.
+        if (listing.Status == ListingStatus.Sold)
+        {
+            throw new InvalidOperationException(
+                "Solgte annonser kan ikke fjernes.");
+        }
+
+        // Soft delete.
+        listing.Status = ListingStatus.Removed;
+
+        // Avslå utestående bud på annonsen.
+        foreach (var offer in listing.Offers)
+        {
+            if (offer.Status == OfferStatus.Pending)
+            {
+                offer.Status = OfferStatus.Rejected;
+            }
+        }
+
         await _repository.SaveChangesAsync();
 
         return true;
@@ -162,28 +221,34 @@ public class ListingService : IListingService
     private static void Validate(
         string title,
         string description,
-        decimal price,
+        int price,
         decimal originalPrice,
         Condition condition)
     {
         if (string.IsNullOrWhiteSpace(title) ||
-            title.Trim().Length < 3)
+            title.Length > 100)
         {
             throw new ArgumentException(
-                "Tittel må inneholde minst 3 tegn.");
+                "Tittel er påkrevd og kan ha maksimalt 100 tegn.");
         }
 
-        if (string.IsNullOrWhiteSpace(description) ||
-            description.Trim().Length < 10)
+        if (description == null ||
+            description.Length > 2000)
         {
             throw new ArgumentException(
-                "Beskrivelsen må inneholde minst 10 tegn.");
+                "Beskrivelsen kan ha maksimalt 2000 tegn.");
         }
 
-        if (price < 0 || originalPrice < 0)
+        if (price <= 0)
         {
             throw new ArgumentException(
-                "Pris kan ikke være negativ.");
+                "Prisen må være større enn null.");
+        }
+
+        if (originalPrice < 0)
+        {
+            throw new ArgumentException(
+                "Opprinnelig pris kan ikke være negativ.");
         }
 
         if (!Enum.IsDefined(condition))
@@ -193,8 +258,14 @@ public class ListingService : IListingService
         }
     }
 
-    private static ListingDto ToDto(Listing listing)
+    private async Task<ListingDto> ToDtoAsync(Listing listing)
     {
+        var assessment =
+            await _analyticsService.GetPriceAssessmentAsync(
+                listing.CategoryId,
+                listing.Price,
+                listing.Condition);
+
         return new ListingDto
         {
             Id = listing.Id,
@@ -204,12 +275,16 @@ public class ListingService : IListingService
             OriginalPrice = listing.OriginalPrice,
             Condition = listing.Condition,
             Status = listing.Status,
-            CreatedAt = listing.CreatedAt,
-            SoldAt = listing.SoldAt,
+            ImageUrl = listing.ImageUrl,
+            CreatedDate = listing.CreatedDate,
+            SoldDate = listing.SoldDate,
+            SoldPrice = listing.SoldPrice,
             CategoryId = listing.CategoryId,
             CategoryName = listing.Category.Name,
             SellerId = listing.SellerId,
-            SellerName = listing.Seller.FullName
+            SellerName = listing.Seller.FullName,
+            OfferCount = listing.Offers.Count,
+            PriceAssessment = assessment.Assessment
         };
     }
 }

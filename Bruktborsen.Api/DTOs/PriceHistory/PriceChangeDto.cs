@@ -10,5 +10,5 @@ public class PriceChangeDto
 
     public decimal NewPrice { get; set; }
 
-    public DateTime ChangedAt { get; set; }
+    public DateTime ChangedDate { get; set; }
 }

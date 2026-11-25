@@ -5,7 +5,9 @@ namespace Bruktborsen.Api.Services.Interfaces;
 public interface IOfferService
 {
     Task<OfferDto> CreateAsync(
-        CreateOfferDto dto, string buyerId);
+        int listingId,
+        CreateOfferDto dto,
+        string buyerId);
 
     Task<List<OfferDto>> GetMyOffersAsync(
         string buyerId);

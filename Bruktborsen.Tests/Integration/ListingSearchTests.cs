@@ -209,10 +209,10 @@ public class ListingSearchTests
         using var client = factory.CreateClient();
 
         var listings = await GetListingsAsync(
-            client, "?sortBy=price&sortOrder=asc");
+            client, "?sort=price_asc");
 
         Assert.Equal(
-            new[] { 600m, 900m, 1800m, 2800m, 3500m },
+            new[] { 600, 900, 1800, 2800, 3500 },
             listings.Select(l => l.Price).ToArray());
     }
 
@@ -225,15 +225,15 @@ public class ListingSearchTests
         using var client = factory.CreateClient();
 
         var listings = await GetListingsAsync(
-            client, "?sortBy=price&sortOrder=desc");
+            client, "?sort=price_desc");
 
         Assert.Equal(
-            new[] { 3500m, 2800m, 1800m, 900m, 600m },
+            new[] { 3500, 2800, 1800, 900, 600 },
             listings.Select(l => l.Price).ToArray());
     }
 
     [Fact]
-    public async Task SortListings_ByTitleAscending_ReturnsOrderedListings()
+    public async Task SortListings_Newest_ReturnsNewestFirst()
     {
         await using var factory = new AuthTestFactory();
         await SeedListingsAsync(factory);
@@ -241,64 +241,36 @@ public class ListingSearchTests
         using var client = factory.CreateClient();
 
         var listings = await GetListingsAsync(
-            client, "?sortBy=title&sortOrder=asc");
+            client, "?sort=newest");
 
         Assert.Equal(
             new[]
             {
-                "Gamingstol",
-                "Nintendo Switch",
-                "PlayStation 5",
                 "Skrivebord",
-                "Xbox Series X"
+                "Gamingstol",
+                "Xbox Series X",
+                "Nintendo Switch",
+                "PlayStation 5"
             },
             listings.Select(l => l.Title).ToArray());
     }
 
-    [Fact]
-    public async Task SortListings_ByTitleDescending_ReturnsOrderedListings()
+    [Theory]
+    [InlineData("?sort=title_asc")]
+    [InlineData("?sort=title_desc")]
+    public async Task SortListings_UnsupportedSort_ReturnsBadRequest(
+        string query)
     {
         await using var factory = new AuthTestFactory();
-        await SeedListingsAsync(factory);
 
         using var client = factory.CreateClient();
 
-        var listings = await GetListingsAsync(
-            client, "?sortBy=title&sortOrder=desc");
+        var response = await client.GetAsync(
+            $"/api/listings{query}");
 
         Assert.Equal(
-            new[]
-            {
-                "Xbox Series X",
-                "Skrivebord",
-                "PlayStation 5",
-                "Nintendo Switch",
-                "Gamingstol"
-            },
-            listings.Select(l => l.Title).ToArray());
-    }
-
-    [Fact]
-    public async Task SortListings_ByCreatedAtAscending_ReturnsOldestFirst()
-    {
-        await using var factory = new AuthTestFactory();
-        await SeedListingsAsync(factory);
-
-        using var client = factory.CreateClient();
-
-        var listings = await GetListingsAsync(
-            client, "?sortBy=createdAt&sortOrder=asc");
-
-        Assert.Equal(
-            new[]
-            {
-                "PlayStation 5",
-                "Nintendo Switch",
-                "Xbox Series X",
-                "Gamingstol",
-                "Skrivebord"
-            },
-            listings.Select(l => l.Title).ToArray());
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
     }
 
     [Fact]
@@ -336,7 +308,7 @@ public class ListingSearchTests
 
             foreach (var listing in db.Listings.ToList())
             {
-                listing.Price = 1000m;
+                listing.Price = 1000;
             }
 
             await db.SaveChangesAsync();
@@ -345,7 +317,7 @@ public class ListingSearchTests
         using var client = factory.CreateClient();
 
         var listings = await GetListingsAsync(
-            client, "?sortBy=price&sortOrder=asc");
+            client, "?sort=price_asc");
 
         Assert.Equal(5, listings.Count);
 
@@ -369,7 +341,8 @@ public class ListingSearchTests
                 l => l.Title == "PlayStation 5");
 
             listing.Status = ListingStatus.Sold;
-            listing.SoldAt = DateTime.UtcNow;
+            listing.SoldDate = DateTime.UtcNow;
+            listing.SoldPrice = listing.Price;
 
             await db.SaveChangesAsync();
         }
@@ -417,8 +390,8 @@ public class ListingSearchTests
     [InlineData("?categoryId=-1")]
     [InlineData("?condition=999")]
     [InlineData("?condition=Invalid")]
-    [InlineData("?sortBy=invalid")]
-    [InlineData("?sortOrder=invalid")]
+    [InlineData("?sort=invalid")]
+    [InlineData("?sort=oldest")]
     [InlineData("?minPrice=abc")]
     public async Task GetListings_InvalidQuery_ReturnsBadRequest(
         string query)
@@ -541,7 +514,7 @@ public class ListingSearchTests
             electronicsId,
             "PlayStation 5",
             "Pent brukt konsoll med to kontroller.",
-            3500m,
+            3500,
             Condition.LikeNew));
 
         listingIds.Add(await CreateListingAsync(
@@ -549,7 +522,7 @@ public class ListingSearchTests
             electronicsId,
             "Nintendo Switch",
             "Baerbar konsoll med original emballasje.",
-            1800m,
+            1800,
             Condition.Good));
 
         listingIds.Add(await CreateListingAsync(
@@ -557,7 +530,7 @@ public class ListingSearchTests
             electronicsId,
             "Xbox Series X",
             "Brukt konsoll med strømkabel.",
-            2800m,
+            2800,
             Condition.Used));
 
         listingIds.Add(await CreateListingAsync(
@@ -565,7 +538,7 @@ public class ListingSearchTests
             furnitureId,
             "Gamingstol",
             "Komfortabel stol med justerbar rygg.",
-            900m,
+            900,
             Condition.Good));
 
         listingIds.Add(await CreateListingAsync(
@@ -573,7 +546,7 @@ public class ListingSearchTests
             furnitureId,
             "Skrivebord",
             "Solid skrivebord med god arbeidsplass.",
-            600m,
+            600,
             Condition.Used));
 
         // Faste publiseringsdatoer for deterministiske tester.
@@ -593,7 +566,7 @@ public class ListingSearchTests
 
                 Assert.NotNull(listing);
 
-                listing!.CreatedAt = startDate.AddDays(i);
+                listing!.CreatedDate = startDate.AddDays(i);
             }
 
             await db.SaveChangesAsync();
@@ -607,7 +580,7 @@ public class ListingSearchTests
         int categoryId,
         string title,
         string description,
-        decimal price,
+        int price,
         Condition condition)
     {
         var response = await client.PostAsJsonAsync(
@@ -617,7 +590,7 @@ public class ListingSearchTests
                 Title = title,
                 Description = description,
                 Price = price,
-                OriginalPrice = price * 2,
+                OriginalPrice = price * 2m,
                 Condition = condition,
                 CategoryId = categoryId
             });

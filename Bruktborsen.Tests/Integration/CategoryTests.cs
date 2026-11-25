@@ -266,7 +266,7 @@ public async Task Admin_CannotDeleteCategoryWithListings()
         {
             Title = "Brukt spill",
             Description = "Et brukt spill i god stand",
-            Price = 250m,
+            Price = 250,
             CategoryId = id,
             SellerId = seller.Id
         });

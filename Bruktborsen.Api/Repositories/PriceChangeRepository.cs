@@ -21,7 +21,7 @@ public class PriceChangeRepository : IPriceChangeRepository
         return await _context.PriceChanges
             .AsNoTracking()
             .Where(p => p.ListingId == listingId)
-            .OrderBy(p => p.ChangedAt)
+            .OrderBy(p => p.ChangedDate)
             .ThenBy(p => p.Id)
             .ToListAsync();
     }

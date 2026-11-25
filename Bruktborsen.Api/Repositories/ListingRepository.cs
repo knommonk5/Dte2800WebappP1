@@ -25,6 +25,7 @@ public class ListingRepository : IListingRepository
             .AsNoTracking()
             .Include(l => l.Category)
             .Include(l => l.Seller)
+            .Include(l => l.Offers)
             .Where(l => l.Status == ListingStatus.Active);
 
         // Søk i tittel og beskrivelse.
@@ -65,33 +66,38 @@ public class ListingRepository : IListingRepository
                 l.Condition == query.Condition.Value);
         }
 
-        // Bestem sorteringsretning.
-        var ascending = string.Equals(
-            query.SortOrder,
-            "asc",
-            StringComparison.OrdinalIgnoreCase);
+        // Sorter etter oppgavens API-kontrakt.
+        var sort = query.Sort.ToLowerInvariant();
 
-        var sortBy = query.SortBy.ToLowerInvariant();
-
-        // Sorter resultatet.
         IOrderedQueryable<Listing> orderedListings =
-            sortBy switch
+            sort switch
             {
-                "price" => ascending
-                    ? listings.OrderBy(l => (double)l.Price)
-                    : listings.OrderByDescending(l => (double)l.Price),
+                "price_asc" =>
+                    listings.OrderBy(l => l.Price),
 
-                "title" => ascending
-                    ? listings.OrderBy(l => l.Title)
-                    : listings.OrderByDescending(l => l.Title),
+                "price_desc" =>
+                    listings.OrderByDescending(l => l.Price),
 
-                _ => ascending
-                    ? listings.OrderBy(l => l.CreatedAt)
-                    : listings.OrderByDescending(l => l.CreatedAt)
+                _ =>
+                    listings.OrderByDescending(l => l.CreatedDate)
             };
 
         // Stabil sortering ved identiske verdier.
         return await orderedListings
+            .ThenBy(l => l.Id)
+            .ToListAsync();
+    }
+
+    public async Task<List<Listing>> GetBySellerIdAsync(
+        string sellerId)
+    {
+        return await _context.Listings
+            .AsNoTracking()
+            .Include(l => l.Category)
+            .Include(l => l.Seller)
+            .Include(l => l.Offers)
+            .Where(l => l.SellerId == sellerId)
+            .OrderByDescending(l => l.CreatedDate)
             .ThenBy(l => l.Id)
             .ToListAsync();
     }
@@ -101,17 +107,13 @@ public class ListingRepository : IListingRepository
         return await _context.Listings
             .Include(l => l.Category)
             .Include(l => l.Seller)
+            .Include(l => l.Offers)
             .FirstOrDefaultAsync(l => l.Id == id);
     }
 
     public async Task AddAsync(Listing listing)
     {
         await _context.Listings.AddAsync(listing);
-    }
-
-    public void Delete(Listing listing)
-    {
-        _context.Listings.Remove(listing);
     }
 
     public async Task<bool> CategoryExistsAsync(int categoryId)
@@ -122,6 +124,15 @@ public class ListingRepository : IListingRepository
 
     public async Task SaveChangesAsync()
     {
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new InvalidOperationException(
+                "Annonsen har blitt endret av en annen forespørsel.",
+                ex);
+        }
     }
 }

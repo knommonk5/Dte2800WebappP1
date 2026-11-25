@@ -86,7 +86,7 @@ public class OfferTests
             {
                 Title = "Brukt spillkonsoll",
                 Description = "Pent brukt spillkonsoll med kontroller.",
-                Price = 1500m,
+                Price = 1500,
                 OriginalPrice = 3000m,
                 Condition = Condition.Good,
                 CategoryId = categoryId
@@ -106,10 +106,9 @@ public class OfferTests
         decimal amount = 1200m)
     {
         var response = await client.PostAsJsonAsync(
-            "/api/offers",
+            $"/api/listings/{listingId}/offers",
             new
             {
-                ListingId = listingId,
                 Amount = amount
             });
 
@@ -146,10 +145,9 @@ public class OfferTests
         using var client = factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
-            "/api/offers",
+            "/api/listings/1/offers",
             new
             {
-                ListingId = 1,
                 Amount = 1200m
             });
 
@@ -197,10 +195,9 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var response = await seller.PostAsJsonAsync(
-            "/api/offers",
+            $"/api/listings/{listingId}/offers",
             new
             {
-                ListingId = listingId,
                 Amount = 1200m
             });
 
@@ -220,10 +217,9 @@ public class OfferTests
             factory, "buyer@example.com");
 
         var response = await buyer.PostAsJsonAsync(
-            "/api/offers",
+            "/api/listings/99999/offers",
             new
             {
-                ListingId = 99999,
                 Amount = 1200m
             });
 
@@ -249,10 +245,9 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var response = await buyer.PostAsJsonAsync(
-            "/api/offers",
+            $"/api/listings/{listingId}/offers",
             new
             {
-                ListingId = listingId,
                 Amount = -100m
             });
 
@@ -269,7 +264,7 @@ public class OfferTests
         await using var factory = new AuthTestFactory();
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/api/offers/mine");
+        var response = await client.GetAsync("/api/offers/my");
 
         Assert.Equal(
             HttpStatusCode.Unauthorized,
@@ -295,7 +290,7 @@ public class OfferTests
         var offerId = await CreateOfferAsync(buyer, listingId);
 
         var offers = await buyer.GetFromJsonAsync<List<JsonElement>>(
-            "/api/offers/mine");
+            "/api/offers/my");
 
         Assert.NotNull(offers);
 
@@ -332,7 +327,7 @@ public class OfferTests
             buyer2, listingId, 1200m);
 
         var offers = await buyer1.GetFromJsonAsync<List<JsonElement>>(
-            "/api/offers/mine");
+            "/api/offers/my");
 
         Assert.NotNull(offers);
 
@@ -420,7 +415,7 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
         var offerId = await CreateOfferAsync(buyer, listingId);
 
-        var response = await seller.PutAsync(
+        var response = await seller.PostAsync(
             $"/api/offers/{offerId}/accept", null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -447,7 +442,7 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
         var offerId = await CreateOfferAsync(buyer, listingId);
 
-        var response = await seller.PutAsync(
+        var response = await seller.PostAsync(
             $"/api/offers/{offerId}/accept", null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -461,7 +456,8 @@ public class OfferTests
 
         Assert.NotNull(listing);
         Assert.Equal(ListingStatus.Sold, listing.Status);
-        Assert.NotNull(listing.SoldAt);
+        Assert.NotNull(listing.SoldDate);
+        Assert.Equal(1200m, listing.SoldPrice);
     }
 
     // Test 13
@@ -489,7 +485,7 @@ public class OfferTests
         var offerId2 = await CreateOfferAsync(
             buyer2, listingId, 1300m);
 
-        var response = await seller.PutAsync(
+        var response = await seller.PostAsync(
             $"/api/offers/{offerId2}/accept", null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -520,7 +516,7 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
         var offerId = await CreateOfferAsync(buyer, listingId);
 
-        var response = await buyer.PutAsync(
+        var response = await buyer.PostAsync(
             $"/api/offers/{offerId}/accept", null);
 
         Assert.Equal(
@@ -549,10 +545,10 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
         var offerId = await CreateOfferAsync(buyer, listingId);
 
-        var first = await seller.PutAsync(
+        var first = await seller.PostAsync(
             $"/api/offers/{offerId}/accept", null);
 
-        var second = await seller.PutAsync(
+        var second = await seller.PostAsync(
             $"/api/offers/{offerId}/accept", null);
 
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
@@ -579,7 +575,7 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
         var offerId = await CreateOfferAsync(buyer, listingId);
 
-        var response = await seller.PutAsync(
+        var response = await seller.PostAsync(
             $"/api/offers/{offerId}/reject", null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -606,7 +602,7 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
         var offerId = await CreateOfferAsync(buyer, listingId);
 
-        var response = await buyer.PutAsync(
+        var response = await buyer.PostAsync(
             $"/api/offers/{offerId}/reject", null);
 
         Assert.Equal(
@@ -635,7 +631,7 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
         var offerId = await CreateOfferAsync(buyer, listingId);
 
-        var response = await buyer.PutAsync(
+        var response = await buyer.PostAsync(
             $"/api/offers/{offerId}/withdraw", null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -662,7 +658,7 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
         var offerId = await CreateOfferAsync(buyer, listingId);
 
-        var response = await seller.PutAsync(
+        var response = await seller.PostAsync(
             $"/api/offers/{offerId}/withdraw", null);
 
         Assert.Equal(
@@ -677,7 +673,7 @@ public class OfferTests
     // Test 20
 
     [Fact]
-    public async Task CreateOffer_OnSoldListing_ReturnsBadRequest()
+    public async Task CreateOffer_OnSoldListing_ReturnsConflict()
     {
         await using var factory = new AuthTestFactory();
 
@@ -694,7 +690,7 @@ public class OfferTests
         var listingId = await CreateListingAsync(seller, categoryId);
         var offerId = await CreateOfferAsync(buyer1, listingId);
 
-        var acceptResponse = await seller.PutAsync(
+        var acceptResponse = await seller.PostAsync(
             $"/api/offers/{offerId}/accept", null);
 
         Assert.Equal(
@@ -702,15 +698,14 @@ public class OfferTests
             acceptResponse.StatusCode);
 
         var response = await buyer2.PostAsJsonAsync(
-            "/api/offers",
+            $"/api/listings/{listingId}/offers",
             new
             {
-                ListingId = listingId,
                 Amount = 1400m
             });
 
         Assert.Equal(
-            HttpStatusCode.BadRequest,
+            HttpStatusCode.Conflict,
             response.StatusCode);
     }
     
@@ -753,14 +748,14 @@ public class OfferTests
         Assert.Equal(OfferStatus.Pending, staleOffer.Status);
 
         // Den første forespørselen aksepterer budet.
-        var response = await seller.PutAsync(
+        var response = await seller.PostAsync(
             $"/api/offers/{offerId1}/accept", null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         // Den andre forespørselen forsøker å lagre basert på utdaterte data.
         staleListing.Status = ListingStatus.Sold;
-        staleListing.SoldAt = DateTime.UtcNow;
+        staleListing.SoldDate = DateTime.UtcNow;
         staleOffer.Status = OfferStatus.Accepted;
 
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(
@@ -774,5 +769,183 @@ public class OfferTests
         Assert.Equal(
             OfferStatus.Rejected,
             await GetOfferStatusAsync(factory, offerId2));
+    }
+    
+    [Fact]
+    public async Task CreateOffer_SecondPendingOffer_ReturnsConflict()
+    {
+        await using var factory = new AuthTestFactory();
+
+        using var seller = await CreateUserClientAsync(
+            factory, "seller@example.com");
+
+        using var buyer = await CreateUserClientAsync(
+            factory, "buyer@example.com");
+
+        var categoryId = await CreateCategoryAsync(factory);
+        var listingId = await CreateListingAsync(seller, categoryId);
+
+        var offerId = await CreateOfferAsync(
+            buyer, listingId, 1000m);
+
+        var response = await buyer.PostAsJsonAsync(
+            $"/api/listings/{listingId}/offers",
+            new
+            {
+                Amount = 1200m
+            });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<BruktborsenDbContext>();
+
+        var offers = await db.Offers
+            .Where(o => o.ListingId == listingId)
+            .ToListAsync();
+
+        var offer = Assert.Single(offers);
+
+        Assert.Equal(offerId, offer.Id);
+        Assert.Equal(OfferStatus.Pending, offer.Status);
+        Assert.Equal(1000m, offer.Amount);
+    }
+    
+    [Fact]
+    public async Task CreateOffer_BelowMinimumAmount_ReturnsBadRequest()
+    {
+        await using var factory = new AuthTestFactory();
+
+        using var seller = await CreateUserClientAsync(
+            factory, "seller@example.com");
+
+        using var buyer = await CreateUserClientAsync(
+            factory, "buyer@example.com");
+
+        var categoryId = await CreateCategoryAsync(factory);
+        var listingId = await CreateListingAsync(seller, categoryId);
+
+        var response = await buyer.PostAsJsonAsync(
+            $"/api/listings/{listingId}/offers",
+            new
+            {
+                Amount = 749.99m
+            });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<BruktborsenDbContext>();
+
+        Assert.False(await db.Offers.AnyAsync(
+            o => o.ListingId == listingId));
+    }
+    
+    [Fact]
+    public async Task CreateOffer_ExactlyMinimumAmount_ReturnsCreated()
+    {
+        await using var factory = new AuthTestFactory();
+
+        using var seller = await CreateUserClientAsync(
+            factory, "seller@example.com");
+
+        using var buyer = await CreateUserClientAsync(
+            factory, "buyer@example.com");
+
+        var categoryId = await CreateCategoryAsync(factory);
+        var listingId = await CreateListingAsync(seller, categoryId);
+
+        var offerId = await CreateOfferAsync(
+            buyer, listingId, 750m);
+
+        using var scope = factory.Services.CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<BruktborsenDbContext>();
+
+        var offer = await db.Offers.FindAsync(offerId);
+
+        Assert.NotNull(offer);
+        Assert.Equal(750m, offer.Amount);
+        Assert.Equal(OfferStatus.Pending, offer.Status);
+    }
+    
+    [Fact]
+    public async Task CreateOffer_AfterWithdrawal_ReturnsCreated()
+    {
+        await using var factory = new AuthTestFactory();
+
+        using var seller = await CreateUserClientAsync(
+            factory, "seller@example.com");
+
+        using var buyer = await CreateUserClientAsync(
+            factory, "buyer@example.com");
+
+        var categoryId = await CreateCategoryAsync(factory);
+        var listingId = await CreateListingAsync(seller, categoryId);
+
+        var firstOfferId = await CreateOfferAsync(
+            buyer, listingId, 1000m);
+
+        var response = await buyer.PostAsync(
+            $"/api/offers/{firstOfferId}/withdraw", null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var secondOfferId = await CreateOfferAsync(
+            buyer, listingId, 1200m);
+
+        Assert.NotEqual(firstOfferId, secondOfferId);
+
+        Assert.Equal(
+            OfferStatus.Withdrawn,
+            await GetOfferStatusAsync(factory, firstOfferId));
+
+        Assert.Equal(
+            OfferStatus.Pending,
+            await GetOfferStatusAsync(factory, secondOfferId));
+    }
+    
+    [Fact]
+    public async Task CreateOffer_OnRemovedListing_ReturnsConflict()
+    {
+        await using var factory = new AuthTestFactory();
+
+        using var seller = await CreateUserClientAsync(
+            factory, "seller@example.com");
+
+        using var buyer = await CreateUserClientAsync(
+            factory, "buyer@example.com");
+
+        var categoryId = await CreateCategoryAsync(factory);
+        var listingId = await CreateListingAsync(seller, categoryId);
+
+        var deleteResponse = await seller.DeleteAsync(
+            $"/api/listings/{listingId}");
+
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            deleteResponse.StatusCode);
+
+        var response = await buyer.PostAsJsonAsync(
+            $"/api/listings/{listingId}/offers",
+            new
+            {
+                Amount = 1200m
+            });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<BruktborsenDbContext>();
+
+        Assert.False(await db.Offers.AnyAsync(
+            o => o.ListingId == listingId));
     }
 }

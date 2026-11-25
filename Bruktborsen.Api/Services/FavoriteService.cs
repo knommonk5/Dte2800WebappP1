@@ -1,4 +1,3 @@
-
 using Bruktborsen.Api.DTOs.Listings;
 using Bruktborsen.Api.Models;
 using Bruktborsen.Api.Models.Enums;
@@ -10,10 +9,14 @@ namespace Bruktborsen.Api.Services;
 public class FavoriteService : IFavoriteService
 {
     private readonly IFavoriteRepository _repository;
+    private readonly IAnalyticsService _analyticsService;
 
-    public FavoriteService(IFavoriteRepository repository)
+    public FavoriteService(
+        IFavoriteRepository repository,
+        IAnalyticsService analyticsService)
     {
         _repository = repository;
+        _analyticsService = analyticsService;
     }
 
     public async Task<List<ListingDto>> GetMyFavoritesAsync(
@@ -21,25 +24,44 @@ public class FavoriteService : IFavoriteService
     {
         var favorites = await _repository.GetByUserIdAsync(userId);
 
-        return favorites
-            .Where(f => f.Listing.Status == ListingStatus.Active)
-            .Select(f => new ListingDto
+        var result = new List<ListingDto>();
+
+        foreach (var favorite in favorites)
+        {
+            var listing = favorite.Listing;
+
+            if (listing.Status != ListingStatus.Active)
+                continue;
+
+            var assessment =
+                await _analyticsService.GetPriceAssessmentAsync(
+                    listing.CategoryId,
+                    listing.Price,
+                    listing.Condition);
+
+            result.Add(new ListingDto
             {
-                Id = f.Listing.Id,
-                Title = f.Listing.Title,
-                Description = f.Listing.Description,
-                Price = f.Listing.Price,
-                OriginalPrice = f.Listing.OriginalPrice,
-                Condition = f.Listing.Condition,
-                Status = f.Listing.Status,
-                CreatedAt = f.Listing.CreatedAt,
-                SoldAt = f.Listing.SoldAt,
-                CategoryId = f.Listing.CategoryId,
-                CategoryName = f.Listing.Category.Name,
-                SellerId = f.Listing.SellerId,
-                SellerName = f.Listing.Seller.FullName
-            })
-            .ToList();
+                Id = listing.Id,
+                Title = listing.Title,
+                Description = listing.Description,
+                Price = listing.Price,
+                OriginalPrice = listing.OriginalPrice,
+                Condition = listing.Condition,
+                Status = listing.Status,
+                ImageUrl = listing.ImageUrl,
+                CreatedDate = listing.CreatedDate,
+                SoldDate = listing.SoldDate,
+                SoldPrice = listing.SoldPrice,
+                CategoryId = listing.CategoryId,
+                CategoryName = listing.Category.Name,
+                SellerId = listing.SellerId,
+                SellerName = listing.Seller.FullName,
+                OfferCount = listing.Offers.Count,
+                PriceAssessment = assessment.Assessment
+            });
+        }
+
+        return result;
     }
 
     public async Task<bool> AddAsync(
