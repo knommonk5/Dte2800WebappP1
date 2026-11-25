@@ -157,6 +157,13 @@ var app = builder.Build();
 // Opprett nødvendige Identity-roller
 await IdentitySeeder.SeedRolesAsync(app.Services);
 
+// Opprett demonstrasjonsdata ved eksplisitt aktivering.
+if (app.Environment.IsDevelopment() &&
+    app.Configuration.GetValue<bool>("SeedData:Enabled"))
+{
+    await DataSeeder.SeedAsync(app.Services);
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
