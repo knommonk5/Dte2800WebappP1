@@ -10,7 +10,7 @@ public class Offer
 
     public OfferStatus Status { get; set; } = OfferStatus.Pending;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
     public int ListingId { get; set; }
     public Listing Listing { get; set; } = null!;

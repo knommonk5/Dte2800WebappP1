@@ -18,13 +18,32 @@ public class ListingsController : ControllerBase
     }
 
     // GET /api/listings
-    // GET /api/listings?search=spill&sortBy=price&sortOrder=asc
+    // GET /api/listings?search=spill&sort=price_asc
     [HttpGet]
     [AllowAnonymous]
     public async Task<ActionResult<List<ListingDto>>> GetAll(
         [FromQuery] ListingQueryDto query)
     {
         var listings = await _service.GetAllAsync(query);
+
+        return Ok(listings);
+    }
+
+    // GET /api/listings/my
+    [HttpGet("my")]
+    [Authorize]
+    public async Task<ActionResult<List<ListingDto>>> GetMyListings()
+    {
+        var userId =
+            User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var listings =
+            await _service.GetMyListingsAsync(userId);
 
         return Ok(listings);
     }
@@ -37,7 +56,9 @@ public class ListingsController : ControllerBase
         var listing = await _service.GetByIdAsync(id);
 
         if (listing == null)
+        {
             return NotFound();
+        }
 
         return Ok(listing);
     }
@@ -48,14 +69,18 @@ public class ListingsController : ControllerBase
     public async Task<ActionResult<ListingDto>> Create(
         [FromBody] CreateListingDto dto)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userId =
+            User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(userId))
+        {
             return Unauthorized();
+        }
 
         try
         {
-            var listing = await _service.CreateAsync(dto, userId);
+            var listing =
+                await _service.CreateAsync(dto, userId);
 
             return CreatedAtAction(
                 nameof(GetById),
@@ -66,6 +91,10 @@ public class ListingsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     // PUT /api/listings/5
@@ -75,10 +104,13 @@ public class ListingsController : ControllerBase
         int id,
         [FromBody] UpdateListingDto dto)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userId =
+            User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(userId))
+        {
             return Unauthorized();
+        }
 
         try
         {
@@ -89,7 +121,9 @@ public class ListingsController : ControllerBase
                 User.IsInRole("Admin"));
 
             if (!updated)
+            {
                 return NotFound();
+            }
 
             return NoContent();
         }
@@ -101,6 +135,10 @@ public class ListingsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     // DELETE /api/listings/5
@@ -108,10 +146,13 @@ public class ListingsController : ControllerBase
     [Authorize]
     public async Task<IActionResult> Delete(int id)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userId =
+            User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(userId))
+        {
             return Unauthorized();
+        }
 
         try
         {
@@ -121,13 +162,19 @@ public class ListingsController : ControllerBase
                 User.IsInRole("Admin"));
 
             if (!deleted)
+            {
                 return NotFound();
+            }
 
             return NoContent();
         }
         catch (UnauthorizedAccessException)
         {
             return Forbid();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
         }
     }
 }

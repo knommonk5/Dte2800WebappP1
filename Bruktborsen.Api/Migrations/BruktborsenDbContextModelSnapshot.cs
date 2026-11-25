@@ -94,7 +94,7 @@ namespace Bruktborsen.Api.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(100)
+                        .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -143,7 +143,7 @@ namespace Bruktborsen.Api.Migrations
                     b.Property<int>("Condition")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("CreatedDate")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Description")
@@ -151,27 +151,39 @@ namespace Bruktborsen.Api.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("TEXT");
+
                     b.Property<decimal>("OriginalPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("TEXT");
+                    b.Property<int>("Price")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("SellerId")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime?>("SoldAt")
+                    b.Property<DateTime?>("SoldDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("SoldPrice")
+                        .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Status")
+                        .IsConcurrencyToken()
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(200)
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -180,7 +192,10 @@ namespace Bruktborsen.Api.Migrations
 
                     b.HasIndex("SellerId");
 
-                    b.ToTable("Listings");
+                    b.ToTable("Listings", t =>
+                        {
+                            t.HasCheckConstraint("CK_Listings_Price_Positive", "\"Price\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("Bruktborsen.Api.Models.Offer", b =>
@@ -197,20 +212,24 @@ namespace Bruktborsen.Api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("CreatedDate")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("ListingId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("Status")
+                        .IsConcurrencyToken()
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BuyerId");
 
-                    b.HasIndex("ListingId");
+                    b.HasIndex("ListingId", "BuyerId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Offers_UniquePending")
+                        .HasFilter("\"Status\" = 0");
 
                     b.ToTable("Offers");
                 });
@@ -221,7 +240,7 @@ namespace Bruktborsen.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime>("ChangedAt")
+                    b.Property<DateTime>("ChangedDate")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("ListingId")

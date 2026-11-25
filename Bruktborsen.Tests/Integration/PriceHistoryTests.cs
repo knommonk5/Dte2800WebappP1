@@ -29,7 +29,7 @@ public class PriceHistoryTests
         using var anonymous = factory.CreateClient();
 
         var response = await anonymous.GetAsync(
-            $"/api/listings/{listingId}/price-history");
+            $"/api/analytics/listings/{listingId}/price-history");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
@@ -62,7 +62,7 @@ public class PriceHistoryTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var response = await UpdateListingAsync(
-            seller, listingId, categoryId, 1200m);
+            seller, listingId, categoryId, 1200);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
@@ -86,7 +86,7 @@ public class PriceHistoryTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var response = await UpdateListingAsync(
-            seller, listingId, categoryId, 1800m);
+            seller, listingId, categoryId, 1800);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
@@ -109,7 +109,7 @@ public class PriceHistoryTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var response = await UpdateListingAsync(
-            seller, listingId, categoryId, 1500m);
+            seller, listingId, categoryId, 1500);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
@@ -133,7 +133,7 @@ public class PriceHistoryTests
             seller,
             listingId,
             categoryId,
-            1500m,
+            1500,
             "Oppdatert spillkonsoll");
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
@@ -155,13 +155,13 @@ public class PriceHistoryTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var first = await UpdateListingAsync(
-            seller, listingId, categoryId, 1300m);
+            seller, listingId, categoryId, 1300);
 
         var second = await UpdateListingAsync(
-            seller, listingId, categoryId, 1100m);
+            seller, listingId, categoryId, 1100);
 
         var third = await UpdateListingAsync(
-            seller, listingId, categoryId, 1200m);
+            seller, listingId, categoryId, 1200);
 
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
@@ -180,8 +180,8 @@ public class PriceHistoryTests
         Assert.Equal(1100m, history[2].OldPrice);
         Assert.Equal(1200m, history[2].NewPrice);
 
-        Assert.True(history[0].ChangedAt <= history[1].ChangedAt);
-        Assert.True(history[1].ChangedAt <= history[2].ChangedAt);
+        Assert.True(history[0].ChangedDate <= history[1].ChangedDate);
+        Assert.True(history[1].ChangedDate <= history[2].ChangedDate);
     }
 
     [Fact]
@@ -199,7 +199,7 @@ public class PriceHistoryTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var response = await UpdateListingAsync(
-            otherUser, listingId, categoryId, 100m);
+            otherUser, listingId, categoryId, 100);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
 
@@ -222,7 +222,7 @@ public class PriceHistoryTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var response = await UpdateListingAsync(
-            anonymous, listingId, categoryId, 100m);
+            anonymous, listingId, categoryId, 100);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
 
@@ -243,7 +243,7 @@ public class PriceHistoryTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var response = await UpdateListingAsync(
-            seller, listingId, categoryId, -100m);
+            seller, listingId, categoryId, -100);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -260,7 +260,7 @@ public class PriceHistoryTests
         using var client = factory.CreateClient();
 
         var response = await client.GetAsync(
-            "/api/listings/999999/price-history");
+            "/api/analytics/listings/999999/price-history");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -280,17 +280,16 @@ public class PriceHistoryTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var updateResponse = await UpdateListingAsync(
-            seller, listingId, categoryId, 1200m);
+            seller, listingId, categoryId, 1200);
 
         Assert.Equal(
             HttpStatusCode.NoContent,
             updateResponse.StatusCode);
 
         var offerResponse = await buyer.PostAsJsonAsync(
-            "/api/offers",
+            $"/api/listings/{listingId}/offers",
             new
             {
-                ListingId = listingId,
                 Amount = 1200m
             });
 
@@ -305,7 +304,7 @@ public class PriceHistoryTests
             .GetProperty("id")
             .GetInt32();
 
-        var acceptResponse = await seller.PutAsync(
+        var acceptResponse = await seller.PostAsync(
             $"/api/offers/{offerId}/accept",
             null);
 
@@ -332,7 +331,7 @@ public class PriceHistoryTests
         var listingId = await CreateListingAsync(seller, categoryId);
 
         var response = await UpdateListingAsync(
-            seller, listingId, categoryId, 1200m);
+            seller, listingId, categoryId, 1200);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
@@ -436,7 +435,7 @@ public class PriceHistoryTests
                 Title = "Brukt spillkonsoll",
                 Description =
                     "Pent brukt spillkonsoll med kontroller.",
-                Price = 1500m,
+                Price = 1500,
                 OriginalPrice = 3000m,
                 Condition = Condition.Good,
                 CategoryId = categoryId
@@ -456,7 +455,7 @@ public class PriceHistoryTests
         HttpClient client,
         int listingId,
         int categoryId,
-        decimal price,
+        int price,
         string title = "Brukt spillkonsoll")
     {
         return await client.PutAsJsonAsync(
@@ -478,7 +477,7 @@ public class PriceHistoryTests
         int listingId)
     {
         var response = await client.GetAsync(
-            $"/api/listings/{listingId}/price-history");
+            $"/api/analytics/listings/{listingId}/price-history");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 

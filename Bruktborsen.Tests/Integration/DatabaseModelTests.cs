@@ -43,7 +43,7 @@ public class DatabaseModelTests
         {
             Title = "Brukt laptop",
             Description = "Laptop i god stand",
-            Price = 5000m,
+            Price = 5000,
             OriginalPrice = 6000m,
             Condition = Condition.Good,
             Seller = user,
@@ -183,7 +183,7 @@ public class DatabaseModelTests
             {
                 Title = "Ugyldig annonse",
                 Description = "Kategori finnes ikke",
-                Price = 100m,
+                Price = 100,
                 OriginalPrice = 100m,
                 Condition = Condition.Used,
                 SellerId = user.Id,

@@ -10,5 +10,5 @@ public class PriceChange
     public decimal OldPrice { get; set; }
     public decimal NewPrice { get; set; }
 
-    public DateTime ChangedAt { get; set; } = DateTime.UtcNow;
+    public DateTime ChangedDate { get; set; } = DateTime.UtcNow;
 }

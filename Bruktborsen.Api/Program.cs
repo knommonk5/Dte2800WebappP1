@@ -7,6 +7,7 @@ using Bruktborsen.Api.Services;
 using Bruktborsen.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Bruktborsen.Api.Services.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,11 +23,29 @@ builder.Services.AddDbContext<BruktborsenDbContext>(options =>
 builder.Services
     .AddIdentityApiEndpoints<ApplicationUser>()
     .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<BruktborsenDbContext>();
+    .AddEntityFrameworkStores<BruktborsenDbContext>()
+    .AddUserManager<ApplicationUserManager>();
+
+builder.Services.AddHttpContextAccessor();
 
 // Controllers og OpenAPI
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// CORS for Blazor-klienten
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("BlazorClient", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
 
 // Repositories
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
@@ -34,6 +53,7 @@ builder.Services.AddScoped<IListingRepository, ListingRepository>();
 builder.Services.AddScoped<IFavoriteRepository, FavoriteRepository>();
 builder.Services.AddScoped<IOfferRepository, OfferRepository>();
 builder.Services.AddScoped<IPriceChangeRepository, PriceChangeRepository>();
+builder.Services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
 
 // Services
 builder.Services.AddScoped<ICategoryService, CategoryService>();
@@ -41,6 +61,7 @@ builder.Services.AddScoped<IListingService, ListingService>();
 builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 builder.Services.AddScoped<IOfferService, OfferService>();
 builder.Services.AddScoped<IPriceChangeService, PriceChangeService>();
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 
 var app = builder.Build();
 
@@ -55,8 +76,26 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseCors("BlazorClient");
+
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsPost(context.Request.Method) &&
+        string.Equals(
+            context.Request.Path.Value?.TrimEnd('/'),
+            "/api/auth/register",
+            StringComparison.OrdinalIgnoreCase))
+    {
+        context.Request.EnableBuffering();
+    }
+
+    await next(context);
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapGroup("/api/auth").MapIdentityApi<ApplicationUser>();
 
 app.MapControllers();
 

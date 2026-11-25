@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Bruktborsen.Api.Controllers;
 
 [ApiController]
-[Route("api/listings/{listingId:int}/price-history")]
+[Route("api/analytics/listings/{listingId:int}/price-history")]
 public class PriceHistoryController : ControllerBase
 {
     private readonly IPriceChangeService _service;
@@ -17,7 +17,7 @@ public class PriceHistoryController : ControllerBase
         _service = service;
     }
 
-    // GET /api/listings/5/price-history
+    // GET /api/analytics/listings/5/price-history
     [HttpGet]
     [AllowAnonymous]
     public async Task<ActionResult<List<PriceChangeDto>>> GetByListingId(

@@ -14,7 +14,8 @@ public class FavoriteRepository : IFavoriteRepository
         _context = context;
     }
 
-    public async Task<List<Favorite>> GetByUserIdAsync(string userId)
+    public async Task<List<Favorite>> GetByUserIdAsync(
+        string userId)
     {
         return await _context.Favorites
             .AsNoTracking()
@@ -22,8 +23,11 @@ public class FavoriteRepository : IFavoriteRepository
             .ThenInclude(l => l.Category)
             .Include(f => f.Listing)
             .ThenInclude(l => l.Seller)
+            .Include(f => f.Listing)
+            .ThenInclude(l => l.Offers)
             .Where(f => f.UserId == userId)
             .OrderByDescending(f => f.CreatedAt)
+            .ThenBy(f => f.Id)
             .ToListAsync();
     }
 

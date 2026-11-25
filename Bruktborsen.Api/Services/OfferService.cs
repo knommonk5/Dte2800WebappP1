@@ -16,35 +16,68 @@ public class OfferService : IOfferService
     }
 
     public async Task<OfferDto> CreateAsync(
-        CreateOfferDto dto, string buyerId)
+        int listingId,
+        CreateOfferDto dto,
+        string buyerId)
     {
         var listing = await _repository
-            .GetListingByIdAsync(dto.ListingId);
+            .GetListingByIdAsync(listingId);
 
         if (listing is null)
+        {
             throw new KeyNotFoundException(
                 "Annonsen finnes ikke.");
+        }
 
+        // Bare aktive annonser kan motta bud.
         if (listing.Status != ListingStatus.Active)
+        {
             throw new InvalidOperationException(
                 "Annonsen er ikke aktiv.");
+        }
 
+        // Kjøper kan ikke by på egen annonse.
         if (listing.SellerId == buyerId)
-            throw new InvalidOperationException(
+        {
+            throw new ArgumentException(
                 "Du kan ikke legge inn bud på egen annonse.");
+        }
 
+        // Budbeløpet må være positivt.
         if (dto.Amount <= 0)
+        {
             throw new ArgumentException(
                 "Budbeløpet må være større enn null.");
+        }
+
+        // Maksimalt ett ventende bud per kjøper.
+        if (await _repository.HasPendingOfferAsync(
+                listingId, buyerId))
+        {
+            throw new InvalidOperationException(
+                "Du har allerede et ventende bud på denne annonsen.");
+        }
+
+        // Budet må være minst 50 prosent av annonseprisen.
+        var minimumOffer = listing.Price * 0.5m;
+
+        if (dto.Amount < minimumOffer)
+        {
+            throw new ArgumentException(
+                $"Budet må være minst {minimumOffer:0.##} kr.");
+        }
 
         var offer = new Offer
         {
-            ListingId = dto.ListingId,
+            ListingId = listingId,
             BuyerId = buyerId,
             Amount = dto.Amount,
             Status = OfferStatus.Pending,
-            CreatedAt = DateTime.UtcNow
+            CreatedDate = DateTime.UtcNow
         };
+
+        // Oppdater annonsens versjon for å oppdage samtidige bud, prisendringer, salg og fjerning.
+        listing.Version = Guid.NewGuid();
 
         await _repository.AddAsync(offer);
         await _repository.SaveChangesAsync();
@@ -71,12 +104,16 @@ public class OfferService : IOfferService
             .GetListingByIdAsync(listingId);
 
         if (listing is null)
+        {
             throw new KeyNotFoundException(
                 "Annonsen finnes ikke.");
+        }
 
         if (listing.SellerId != sellerId)
+        {
             throw new UnauthorizedAccessException(
                 "Du har ikke tilgang til budene.");
+        }
 
         var offers = await _repository
             .GetByListingIdAsync(listingId);
@@ -91,17 +128,23 @@ public class OfferService : IOfferService
             offerId, sellerId);
 
         if (offer.Listing.Status != ListingStatus.Active)
+        {
             throw new InvalidOperationException(
                 "Annonsen er ikke aktiv.");
+        }
 
         var pendingOffers = await _repository
             .GetPendingByListingIdAsync(offer.ListingId);
 
+        // Aksepter valgt bud.
         offer.Status = OfferStatus.Accepted;
 
+        // Registrer salget.
         offer.Listing.Status = ListingStatus.Sold;
-        offer.Listing.SoldAt = DateTime.UtcNow;
+        offer.Listing.SoldDate = DateTime.UtcNow;
+        offer.Listing.SoldPrice = offer.Amount;
 
+        // Avslå alle øvrige ventende bud.
         foreach (var otherOffer in pendingOffers)
         {
             if (otherOffer.Id != offer.Id)
@@ -110,6 +153,7 @@ public class OfferService : IOfferService
             }
         }
 
+        // Alle endringer lagres atomisk.
         await _repository.SaveChangesAsync();
 
         return MapToDto(offer);
@@ -135,16 +179,22 @@ public class OfferService : IOfferService
             .GetByIdAsync(offerId);
 
         if (offer is null)
+        {
             throw new KeyNotFoundException(
                 "Budet finnes ikke.");
+        }
 
         if (offer.BuyerId != buyerId)
+        {
             throw new UnauthorizedAccessException(
                 "Du kan bare trekke tilbake egne bud.");
+        }
 
         if (offer.Status != OfferStatus.Pending)
+        {
             throw new InvalidOperationException(
                 "Bare ventende bud kan trekkes tilbake.");
+        }
 
         offer.Status = OfferStatus.Withdrawn;
 
@@ -160,16 +210,22 @@ public class OfferService : IOfferService
             .GetByIdAsync(offerId);
 
         if (offer is null)
+        {
             throw new KeyNotFoundException(
                 "Budet finnes ikke.");
+        }
 
         if (offer.Listing.SellerId != sellerId)
+        {
             throw new UnauthorizedAccessException(
                 "Bare selgeren kan behandle budet.");
+        }
 
         if (offer.Status != OfferStatus.Pending)
+        {
             throw new InvalidOperationException(
                 "Budet er allerede behandlet.");
+        }
 
         return offer;
     }
@@ -181,7 +237,7 @@ public class OfferService : IOfferService
             Id = offer.Id,
             Amount = offer.Amount,
             Status = offer.Status,
-            CreatedAt = offer.CreatedAt,
+            CreatedDate = offer.CreatedDate,
             ListingId = offer.ListingId,
             ListingTitle = offer.Listing.Title,
             BuyerId = offer.BuyerId,

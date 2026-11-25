@@ -8,7 +8,7 @@ namespace Bruktborsen.Api.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/[controller]")]
+[Route("api/offers")]
 public class OffersController : ControllerBase
 {
     private readonly IOfferService _service;
@@ -18,34 +18,37 @@ public class OffersController : ControllerBase
         _service = service;
     }
 
-    [HttpPost]
+    // POST /api/listings/5/offers
+    [HttpPost("/api/listings/{id:int}/offers")]
     public async Task<ActionResult<OfferDto>> Create(
-        CreateOfferDto dto)
+        int id,
+        [FromBody] CreateOfferDto dto)
     {
         try
         {
             var offer = await _service.CreateAsync(
-                dto, GetUserId());
+                id, dto, GetUserId());
 
             return StatusCode(
                 StatusCodes.Status201Created, offer);
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return NotFound(new { message = ex.Message });
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(ex.Message);
+            return BadRequest(new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
-            return BadRequest(ex.Message);
+            return Conflict(new { message = ex.Message });
         }
     }
 
-    [HttpGet("mine")]
-    public async Task<ActionResult<List<OfferDto>>> GetMine()
+    // GET /api/offers/my
+    [HttpGet("my")]
+    public async Task<ActionResult<List<OfferDto>>> GetMyOffers()
     {
         var offers = await _service.GetMyOffersAsync(
             GetUserId());
@@ -53,6 +56,7 @@ public class OffersController : ControllerBase
         return Ok(offers);
     }
 
+    // GET /api/listings/5/offers
     [HttpGet("/api/listings/{id:int}/offers")]
     public async Task<ActionResult<List<OfferDto>>>
         GetListingOffers(int id)
@@ -66,7 +70,7 @@ public class OffersController : ControllerBase
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return NotFound(new { message = ex.Message });
         }
         catch (UnauthorizedAccessException)
         {
@@ -74,7 +78,8 @@ public class OffersController : ControllerBase
         }
     }
 
-    [HttpPut("{id:int}/accept")]
+    // POST /api/offers/5/accept
+    [HttpPost("{id:int}/accept")]
     public async Task<ActionResult<OfferDto>> Accept(int id)
     {
         try
@@ -86,7 +91,7 @@ public class OffersController : ControllerBase
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return NotFound(new { message = ex.Message });
         }
         catch (UnauthorizedAccessException)
         {
@@ -94,11 +99,12 @@ public class OffersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(ex.Message);
+            return Conflict(new { message = ex.Message });
         }
     }
 
-    [HttpPut("{id:int}/reject")]
+    // POST /api/offers/5/reject
+    [HttpPost("{id:int}/reject")]
     public async Task<ActionResult<OfferDto>> Reject(int id)
     {
         try
@@ -110,7 +116,7 @@ public class OffersController : ControllerBase
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return NotFound(new { message = ex.Message });
         }
         catch (UnauthorizedAccessException)
         {
@@ -118,11 +124,12 @@ public class OffersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(ex.Message);
+            return Conflict(new { message = ex.Message });
         }
     }
 
-    [HttpPut("{id:int}/withdraw")]
+    // POST /api/offers/5/withdraw
+    [HttpPost("{id:int}/withdraw")]
     public async Task<ActionResult<OfferDto>> Withdraw(int id)
     {
         try
@@ -134,7 +141,7 @@ public class OffersController : ControllerBase
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(ex.Message);
+            return NotFound(new { message = ex.Message });
         }
         catch (UnauthorizedAccessException)
         {
@@ -142,7 +149,7 @@ public class OffersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return Conflict(ex.Message);
+            return Conflict(new { message = ex.Message });
         }
     }
 

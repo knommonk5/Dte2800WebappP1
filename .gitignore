@@ -10,12 +10,7 @@ obj/
 .env
 appsettings.Development.local.json
 
-# Local SQLite database
-*.db
-*.db-shm
-*.db-wal
-
-# SQLite databases
+# Local SQLite databases
 *.db
 *.db-shm
 *.db-wal

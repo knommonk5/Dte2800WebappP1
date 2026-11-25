@@ -1,7 +1,7 @@
-
 using Bruktborsen.Api.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Bruktborsen.Api.Models.Enums;
 
 namespace Bruktborsen.Api.Data;
 
@@ -18,9 +18,43 @@ public class BruktborsenDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Offer> Offers => Set<Offer>();
     public DbSet<Favorite> Favorites => Set<Favorite>();
     public DbSet<PriceChange> PriceChanges => Set<PriceChange>();
+    
+    public override int SaveChanges(
+        bool acceptAllChangesOnSuccess)
+    {
+        UpdateListingVersions();
+
+        return base.SaveChanges(
+            acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        UpdateListingVersions();
+
+        return base.SaveChangesAsync(
+            acceptAllChangesOnSuccess,
+            cancellationToken);
+    }
+
+    private void UpdateListingVersions()
+    {
+        var modifiedListings = ChangeTracker
+            .Entries<Listing>()
+            .Where(e => e.State == EntityState.Modified)
+            .ToList();
+
+        foreach (var entry in modifiedListings)
+        {
+            entry.Entity.Version = Guid.NewGuid();
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
+        
         base.OnModelCreating(builder);
 
         builder.Entity<ApplicationUser>(entity =>
@@ -34,9 +68,10 @@ public class BruktborsenDbContext : IdentityDbContext<ApplicationUser>
         {
             entity.Property(x => x.Name)
                 .IsRequired()
-                .HasMaxLength(100);
+                .HasMaxLength(50);
 
-            entity.HasIndex(x => x.Name).IsUnique();
+            entity.HasIndex(x => x.Name)
+                .IsUnique();
         });
 
         builder.Entity<Listing>(entity =>
@@ -44,16 +79,32 @@ public class BruktborsenDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.Status)
                 .IsConcurrencyToken();
             
+            entity.Property(x => x.Version)
+                .IsConcurrencyToken();
+
             entity.Property(x => x.Title)
                 .IsRequired()
-                .HasMaxLength(200);
+                .HasMaxLength(100);
 
             entity.Property(x => x.Description)
                 .IsRequired()
                 .HasMaxLength(2000);
 
-            entity.Property(x => x.Price).HasPrecision(18, 2);
-            entity.Property(x => x.OriginalPrice).HasPrecision(18, 2);
+            entity.Property(x => x.ImageUrl)
+                .HasMaxLength(2048);
+
+            entity.Property(x => x.OriginalPrice)
+                .HasPrecision(18, 2);
+
+            entity.Property(x => x.SoldPrice)
+                .HasPrecision(18, 2);
+
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint(
+                    "CK_Listings_Price_Positive",
+                    "\"Price\" > 0");
+            });
 
             entity.HasOne(x => x.Category)
                 .WithMany(x => x.Listings)
@@ -71,7 +122,13 @@ public class BruktborsenDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(x => x.Status)
                 .IsConcurrencyToken();
             
-            entity.Property(x => x.Amount).HasPrecision(18, 2);
+            entity.HasIndex(x => new { x.ListingId, x.BuyerId })
+                .IsUnique()
+                .HasDatabaseName("IX_Offers_UniquePending")
+                .HasFilter($"\"Status\" = {(int)OfferStatus.Pending}");
+
+            entity.Property(x => x.Amount)
+                .HasPrecision(18, 2);
 
             entity.HasOne(x => x.Listing)
                 .WithMany(x => x.Offers)
@@ -102,8 +159,11 @@ public class BruktborsenDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<PriceChange>(entity =>
         {
-            entity.Property(x => x.OldPrice).HasPrecision(18, 2);
-            entity.Property(x => x.NewPrice).HasPrecision(18, 2);
+            entity.Property(x => x.OldPrice)
+                .HasPrecision(18, 2);
+
+            entity.Property(x => x.NewPrice)
+                .HasPrecision(18, 2);
 
             entity.HasOne(x => x.Listing)
                 .WithMany(x => x.PriceChanges)

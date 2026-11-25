@@ -11,17 +11,16 @@ public class ListingQueryDto : IValidatableObject
     [Range(1, int.MaxValue)]
     public int? CategoryId { get; set; }
 
-    [Range(typeof(decimal), "0", "999999999")]
-    public decimal? MinPrice { get; set; }
+    [Range(0, int.MaxValue)]
+    public int? MinPrice { get; set; }
 
-    [Range(typeof(decimal), "0", "999999999")]
-    public decimal? MaxPrice { get; set; }
+    [Range(0, int.MaxValue)]
+    public int? MaxPrice { get; set; }
 
+    [EnumDataType(typeof(Condition))]
     public Condition? Condition { get; set; }
 
-    public string SortBy { get; set; } = "createdAt";
-
-    public string SortOrder { get; set; } = "desc";
+    public string Sort { get; set; } = "newest";
 
     public IEnumerable<ValidationResult> Validate(
         ValidationContext validationContext)
@@ -35,43 +34,20 @@ public class ListingQueryDto : IValidatableObject
                 new[] { nameof(MinPrice), nameof(MaxPrice) });
         }
 
-        if (Condition.HasValue &&
-            !Enum.IsDefined(Condition.Value))
+        var validSortValues = new[]
         {
-            yield return new ValidationResult(
-                "Ugyldig tilstand.",
-                new[] { nameof(Condition) });
-        }
-
-        var validSortFields = new[]
-        {
-            "createdAt",
-            "price",
-            "title"
+            "newest",
+            "price_asc",
+            "price_desc"
         };
 
-        if (!validSortFields.Contains(
-                SortBy,
+        if (!validSortValues.Contains(
+                Sort,
                 StringComparer.OrdinalIgnoreCase))
         {
             yield return new ValidationResult(
-                "SortBy må være createdAt, price eller title.",
-                new[] { nameof(SortBy) });
-        }
-
-        var validSortOrders = new[]
-        {
-            "asc",
-            "desc"
-        };
-
-        if (!validSortOrders.Contains(
-                SortOrder,
-                StringComparer.OrdinalIgnoreCase))
-        {
-            yield return new ValidationResult(
-                "SortOrder må være asc eller desc.",
-                new[] { nameof(SortOrder) });
+                "Sort må være newest, price_asc eller price_desc.",
+                new[] { nameof(Sort) });
         }
     }
 }

@@ -9,18 +9,25 @@ public class ListingDto
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
 
-    public decimal Price { get; set; }
+    public int Price { get; set; }
     public decimal OriginalPrice { get; set; }
 
     public Condition Condition { get; set; }
     public ListingStatus Status { get; set; }
 
-    public DateTime CreatedAt { get; set; }
-    public DateTime? SoldAt { get; set; }
+    public string? ImageUrl { get; set; }
+
+    public DateTime CreatedDate { get; set; }
+    public DateTime? SoldDate { get; set; }
+    public decimal? SoldPrice { get; set; }
 
     public int CategoryId { get; set; }
     public string CategoryName { get; set; } = string.Empty;
 
     public string SellerId { get; set; } = string.Empty;
     public string SellerName { get; set; } = string.Empty;
+
+    public int OfferCount { get; set; }
+
+    public string PriceAssessment { get; set; } = "Unknown";
 }

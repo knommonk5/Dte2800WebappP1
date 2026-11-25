@@ -5,6 +5,6 @@ namespace Bruktborsen.Api.DTOs.Categories;
 public class UpdateCategoryDto
 {
     [Required]
-    [StringLength(100, MinimumLength = 2)]
+    [StringLength(50)]
     public string Name { get; set; } = string.Empty;
 }
